@@ -11,6 +11,10 @@ impl Chunk {
             source: DynamicSizeArray::new(),
         }
     }
+
+    pub fn disassemble(&self, offset: usize) {
+        todo!()
+    }
 }
 
 impl Default for Chunk {
