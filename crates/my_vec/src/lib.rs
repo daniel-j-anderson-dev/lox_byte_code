@@ -26,20 +26,23 @@ impl<T> DynamicSizeArray<T> {
         }
     }
 
+    /// Extend capacity by doubling or adding 1 at first call.
     pub fn grow(&mut self) -> Result<(), Error> {
-        let (new_capacity, new_layout, new_pointer) = if self.capacity == 0 { // [3]
+        // [3]
+        let (new_capacity, new_pointer) = if self.capacity == 0 {
             let new_capacity = 1;
             let new_layout = Layout::array::<T>(new_capacity)?;
             // SAFETY: new_capacity == 1
             let new_pointer = unsafe { alloc::alloc(new_layout) }; // [1]
 
-            (new_capacity, new_layout, new_pointer)
+            (new_capacity, new_pointer)
         } else {
             let new_capacity = 2 * self.capacity; // [4]
             let new_layout = Layout::array::<T>(new_capacity)
                 .map_err(Error::Layout)
                 .and_then(|new_capacity| {
-                    if new_capacity.size() <= MAX_ALLOCATION_SIZE { //[5]
+                    if new_capacity.size() <= MAX_ALLOCATION_SIZE {
+                        //[5]
                         Ok(new_capacity)
                     } else {
                         Err(Error::AllocationTooLarge)
@@ -55,12 +58,17 @@ impl<T> DynamicSizeArray<T> {
             // `new_layout.size()` <= [isize::MAX]. see [5]
             let new_pointer = unsafe { alloc::realloc(old_pointer, old_layout, new_layout.size()) }; // [2]
 
-            (new_capacity, new_layout, new_pointer)
+            (new_capacity, new_pointer)
         };
 
         self.items = NonNull::new(new_pointer as _).ok_or(Error::NewPointerIsNull)?;
         self.capacity = new_capacity;
 
+        Ok(())
+    }
+
+    pub fn push(&mut self, item: T) -> Result<(), Error> {
+        
         Ok(())
     }
 }
