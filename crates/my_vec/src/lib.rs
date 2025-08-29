@@ -19,6 +19,9 @@ pub struct DynamicSizeArray<T> {
     length: usize,
 }
 
+unsafe impl<T: Send> Send for DynamicSizeArray<T> {}
+unsafe impl<T: Sync> Sync for DynamicSizeArray<T> {}
+
 // constructors
 impl<T> DynamicSizeArray<T> {
     pub const fn new() -> Self {
