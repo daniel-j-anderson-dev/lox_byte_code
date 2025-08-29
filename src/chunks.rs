@@ -1,1 +1,3 @@
-pub enum OpCode {}
+pub enum OpCode {
+    Return,
+}
