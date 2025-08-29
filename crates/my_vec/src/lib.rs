@@ -4,6 +4,7 @@ pub mod raw;
 mod test;
 
 use std::{
+    alloc::handle_alloc_error,
     ops::{Deref, DerefMut},
     ptr,
 };
@@ -25,6 +26,12 @@ impl<T> DynamicSizeArray<T> {
             buffer: RawDynamicSizeArray::new(),
             length: 0,
         }
+    }
+}
+
+impl<T> Default for DynamicSizeArray<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -57,7 +64,7 @@ impl<T> DynamicSizeArray<T> {
             std::slice::from_raw_parts(self.buffer.elements.as_ptr(), self.length)
         }
     }
-    pub const fn as_mut(&self) -> &mut [T] {
+    pub const fn as_mut(&mut self) -> &mut [T] {
         unsafe {
             // SAFETY:
             // - `self.raw.elements` is [NonNull] and was created with [Layout::array] so is valid for reads for len * size_of::<T>() bytes,
@@ -96,7 +103,13 @@ impl<T> DynamicSizeArray<T> {
     }
 
     pub fn push(&mut self, element: T) {
-        self.push_checked(element).unwrap()
+        match self.push_checked(element) {
+            Ok(_) => {}
+            Err(grow_error) => match grow_error {
+                GrowError::AllocationFail(layout) => handle_alloc_error(layout),
+                _ => panic!(),
+            },
+        }
     }
 
     pub fn pop(&mut self) -> Option<T> {
@@ -152,7 +165,16 @@ impl<T> DynamicSizeArray<T> {
     }
 
     pub fn inset(&mut self, index: usize, element: T) {
-        self.insert_checked(index, element).unwrap()
+        match self.insert_checked(index, element) {
+            Ok(_) => {}
+            Err(insert_error) => match insert_error {
+                InsertError::Grow(grow_error) => match grow_error {
+                    GrowError::AllocationFail(layout) => handle_alloc_error(layout),
+                    _ => unreachable!(),
+                },
+                InsertError::IndexOutOfBounds => panic!("Index out of bounds"),
+            },
+        }
     }
 
     pub fn remove_checked(&mut self, index: usize) -> Option<T> {
@@ -188,7 +210,7 @@ impl<T> DynamicSizeArray<T> {
 
 impl<T> Drop for DynamicSizeArray<T> {
     fn drop(&mut self) {
-        while let Some(_) = self.pop() {}
+        while self.pop().is_some() {}
     }
 }
 

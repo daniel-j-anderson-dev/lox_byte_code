@@ -2,7 +2,6 @@ use std::{
     alloc::{Layout, LayoutError, alloc, dealloc, realloc},
     mem::size_of,
     ptr::NonNull,
-    usize,
 };
 
 use crate::error::GrowError;
@@ -34,10 +33,23 @@ impl<T> RawDynamicSizeArray<T> {
     }
 }
 
+impl<T> Default for RawDynamicSizeArray<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // accessors
 impl<T> RawDynamicSizeArray<T> {
     const fn layout(&self) -> Result<Layout, LayoutError> {
         Layout::array::<T>(self.capacity)
+    }
+    const fn larger_capacity(&self) -> usize {
+        if self.capacity < 8 {
+            8
+        } else {
+            self.capacity * 2
+        }
     }
 }
 
@@ -57,7 +69,7 @@ impl<T> RawDynamicSizeArray<T> {
             let old_layout = self.layout()?;
             let old_pointer = self.elements.as_ptr() as _;
 
-            self.capacity *= 2; // [4]
+            self.capacity = self.larger_capacity(); // [4]
             let new_layout = self
                 .layout()
                 .map_err(GrowError::Layout)
@@ -89,15 +101,16 @@ impl<T> RawDynamicSizeArray<T> {
 
 impl<T> Drop for RawDynamicSizeArray<T> {
     fn drop(&mut self) {
-        if self.capacity != 0 && Self::ELEMENT_SIZE != 0 {
-            if let Ok(layout) = self.layout() {
-                unsafe {
-                    // SAFETY:
-                    // `self.elements` was allocated by the global allocator so can be deallocated by the global allocator.
-                    // `layout` is the same use to deallocate because is exactly the same [Layout] that was used for that allocation, because
-                    //  we always compute it with `Layout::array::<T>(self.capacity)`.
-                    dealloc(self.elements.as_ptr() as _, layout);
-                }
+        if self.capacity != 0
+            && Self::ELEMENT_SIZE != 0
+            && let Ok(layout) = self.layout()
+        {
+            unsafe {
+                // SAFETY:
+                // `self.elements` was allocated by the global allocator so can be deallocated by the global allocator.
+                // `layout` is the same use to deallocate because is exactly the same [Layout] that was used for that allocation, because
+                //  we always compute it with `Layout::array::<T>(self.capacity)`.
+                dealloc(self.elements.as_ptr() as _, layout);
             }
         }
     }
