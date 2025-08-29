@@ -67,7 +67,7 @@ impl<T> DynamicSizeArray<T> {
             std::slice::from_raw_parts(self.buffer.elements.as_ptr(), self.length)
         }
     }
-    pub const fn as_mut(&mut self) -> &mut [T] {
+    pub const fn as_mutable_slice(&mut self) -> &mut [T] {
         unsafe {
             // SAFETY:
             // - `self.raw.elements` is [NonNull] and was created with [Layout::array] so is valid for reads for len * size_of::<T>() bytes,
@@ -226,6 +226,6 @@ impl<T> Deref for DynamicSizeArray<T> {
 
 impl<T> DerefMut for DynamicSizeArray<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.as_mut()
+        self.as_mutable_slice()
     }
 }
