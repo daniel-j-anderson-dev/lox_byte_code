@@ -5,3 +5,6 @@ pub struct DynamicSizeArray<T> {
     length: usize,
     capacity: usize,
 }
+
+unsafe impl<T: Send> Send for DynamicSizeArray<T> {}
+unsafe impl<T: Sync> Sync for DynamicSizeArray<T> {}
