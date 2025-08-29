@@ -1,1 +1,3 @@
-/target
+target
+/crates/byte_code_compiler/target
+/crates/my_vec/target

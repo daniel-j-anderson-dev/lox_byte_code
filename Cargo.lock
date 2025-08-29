@@ -3,5 +3,9 @@
 version = 4
 
 [[package]]
-name = "new_lox"
+name = "byte_code_compiler"
+version = "0.1.0"
+
+[[package]]
+name = "my_vec"
 version = "0.1.0"
