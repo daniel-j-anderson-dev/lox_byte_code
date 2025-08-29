@@ -1,7 +1,7 @@
 use std::{
     alloc::{self, Layout, LayoutError},
     mem::size_of,
-    ptr::NonNull,
+    ptr::{self, NonNull},
 };
 
 pub const MAX_ALLOCATION_SIZE: usize = isize::MAX as _;
@@ -68,7 +68,20 @@ impl<T> DynamicSizeArray<T> {
     }
 
     pub fn push(&mut self, item: T) -> Result<(), Error> {
-        
+        if self.length == self.capacity {
+            self.grow()?;
+        }
+
+        unsafe {
+            let destination = self.items.as_ptr().add(self.length);
+            // SAFETY:
+            // destination is not null because `self.items` is [NotNull]
+            // destination was created with [Layout::array] and is therefore properly aligned
+            ptr::write(destination, item);
+        }
+
+        self.length += 1;
+
         Ok(())
     }
 }
