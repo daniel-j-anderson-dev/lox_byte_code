@@ -160,6 +160,12 @@ impl<T> DynamicSizeArray<T> {
     }
 }
 
+impl<T> Drop for DynamicSizeArray<T> {
+    fn drop(&mut self) {
+        while let Some(_)=self.pop(){}
+    }
+}
+
 impl<T> Deref for DynamicSizeArray<T> {
     type Target = [T];
     fn deref(&self) -> &Self::Target {
