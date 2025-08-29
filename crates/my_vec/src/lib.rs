@@ -107,7 +107,7 @@ impl<T> DynamicSizeArray<T> {
             self.length -= 1;
 
             // SAFETY:
-            // `self.elements` is [NonNull]. `self.length` will always be a valid offset because `self.length` only increases after an element has been written
+            // `self.elements` is [NonNull]. `self.length` will always be a valid offset because `self.length` only increases after an element has been written and it was just decremented
             let popped_element_pointer = unsafe { self.elements.as_ptr().add(self.length) };
 
             // SAFETY:
