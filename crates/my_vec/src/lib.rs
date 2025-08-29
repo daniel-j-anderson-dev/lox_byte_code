@@ -1,5 +1,7 @@
 pub mod error;
 pub mod raw;
+#[cfg(test)]
+mod test;
 
 use std::{
     ops::{Deref, DerefMut},
@@ -42,6 +44,30 @@ impl<T> DynamicSizeArray<T> {
     }
     pub const fn length(&self) -> usize {
         self.length
+    }
+    pub const fn as_slice(&self) -> &[T] {
+        unsafe {
+            // SAFETY:
+            // - `self.raw.elements` is [NonNull] and was created with [Layout::array] so is valid for reads for len * size_of::<T>() bytes,
+            //   is properly aligned and The entire memory range of this slice must be contained within a single allocation.
+            // - TODO: data must be non-null and aligned even for zero-length slices or slices of ZSTs.
+            // - Each call to push/insert ensures that each element is a properly initialized value of type T.
+            // - returns an shared reference that can't be mutated.
+            // - Every call to [Self::grow] ensures the total size of the slice must be no larger than isize::MAX.
+            std::slice::from_raw_parts(self.buffer.elements.as_ptr(), self.length)
+        }
+    }
+    pub const fn as_mut(&self) -> &mut [T] {
+        unsafe {
+            // SAFETY:
+            // - `self.raw.elements` is [NonNull] and was created with [Layout::array] so is valid for reads for len * size_of::<T>() bytes,
+            //   is properly aligned and The entire memory range of this slice must be contained within a single allocation.
+            // - TODO: data must be non-null and aligned even for zero-length slices or slices of ZSTs.
+            // - Each call to push/insert ensures that each element is a properly initialized value of type T.
+            // - returns a mutable reference the borrow checker makes sure this is the only point of access and we dent give out any raw pointers.
+            // - Every call to [Self::grow] ensures the total size of the slice must be no larger than isize::MAX.
+            std::slice::from_raw_parts_mut(self.buffer.elements.as_ptr(), self.length)
+        }
     }
 }
 
@@ -162,37 +188,19 @@ impl<T> DynamicSizeArray<T> {
 
 impl<T> Drop for DynamicSizeArray<T> {
     fn drop(&mut self) {
-        while let Some(_)=self.pop(){}
+        while let Some(_) = self.pop() {}
     }
 }
 
 impl<T> Deref for DynamicSizeArray<T> {
     type Target = [T];
     fn deref(&self) -> &Self::Target {
-        unsafe {
-            // SAFETY:
-            // - `self.raw.elements` is [NonNull] and was created with [Layout::array] so is valid for reads for len * size_of::<T>() bytes,
-            //   is properly aligned and The entire memory range of this slice must be contained within a single allocation.
-            // - TODO: data must be non-null and aligned even for zero-length slices or slices of ZSTs.
-            // - Each call to push/insert ensures that each element is a properly initialized value of type T.
-            // - returns an shared reference that can't be mutated.
-            // - Every call to [Self::grow] ensures the total size of the slice must be no larger than isize::MAX.
-            std::slice::from_raw_parts(self.buffer.elements.as_ptr(), self.length)
-        }
+        self.as_slice()
     }
 }
 
 impl<T> DerefMut for DynamicSizeArray<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe {
-            // SAFETY:
-            // - `self.raw.elements` is [NonNull] and was created with [Layout::array] so is valid for reads for len * size_of::<T>() bytes,
-            //   is properly aligned and The entire memory range of this slice must be contained within a single allocation.
-            // - TODO: data must be non-null and aligned even for zero-length slices or slices of ZSTs.
-            // - Each call to push/insert ensures that each element is a properly initialized value of type T.
-            // - returns a mutable reference the borrow checker makes sure this is the only point of access and we dent give out any raw pointers.
-            // - Every call to [Self::grow] ensures the total size of the slice must be no larger than isize::MAX.
-            std::slice::from_raw_parts_mut(self.buffer.elements.as_ptr(), self.length)
-        }
+        self.as_mut()
     }
 }
