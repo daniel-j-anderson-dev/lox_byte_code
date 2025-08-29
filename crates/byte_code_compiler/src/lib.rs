@@ -4,4 +4,4 @@ pub mod chunks;
 /// The [Opcode] type it's helpers
 pub mod opcode;
 
-pub use self::opcode::OpCode;
+pub use self::opcode::Opcode;
