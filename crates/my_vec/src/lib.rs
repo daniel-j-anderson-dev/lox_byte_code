@@ -7,7 +7,7 @@ use std::{
 pub const MAX_ALLOCATION_SIZE: usize = isize::MAX as _;
 
 pub struct DynamicSizeArray<T> {
-    items: NonNull<T>,
+    elements: NonNull<T>,
     length: usize,
     capacity: usize,
 }
@@ -15,17 +15,32 @@ pub struct DynamicSizeArray<T> {
 unsafe impl<T: Send> Send for DynamicSizeArray<T> {}
 unsafe impl<T: Sync> Sync for DynamicSizeArray<T> {}
 
+// constructors
 impl<T> DynamicSizeArray<T> {
     pub const fn new() -> Self {
         assert!(size_of::<T>() != 0, "ZST not implemented");
         // TODO: ensure size of T < isize::MAX
         Self {
-            items: NonNull::dangling(),
+            elements: NonNull::dangling(),
             length: 0,
             capacity: 0,
         }
     }
+}
 
+// accessors
+impl<T> DynamicSizeArray<T> {
+    const fn is_empty(&self) -> bool {
+        self.length == 0
+    }
+
+    const fn is_full(&self) -> bool {
+        self.length == self.capacity
+    }
+}
+
+// mutators
+impl<T> DynamicSizeArray<T> {
     /// Extend capacity by doubling or adding 1 at first call.
     pub fn grow(&mut self) -> Result<(), Error> {
         // [3]
@@ -50,10 +65,10 @@ impl<T> DynamicSizeArray<T> {
                 })?;
 
             let old_layout = Layout::array::<T>(self.capacity)?;
-            let old_pointer = self.items.as_ptr() as _;
+            let old_pointer = self.elements.as_ptr() as _;
             // SAFETY:
             // `old_pointer` was allocated with [alloc::alloc] using the same global allocator
-            // `old_layout` was use to allocate. see [1], [2]
+            // `old_layout` was use to allocate and is therefore the same as the size used to allocate. see [1], [2]
             // `new_layout.size()` is unsigned and not 0. see [3], [4]
             // `new_layout.size()` <= [isize::MAX]. see [5]
             let new_pointer = unsafe { alloc::realloc(old_pointer, old_layout, new_layout.size()) }; // [2]
@@ -61,28 +76,47 @@ impl<T> DynamicSizeArray<T> {
             (new_capacity, new_pointer)
         };
 
-        self.items = NonNull::new(new_pointer as _).ok_or(Error::NewPointerIsNull)?;
+        self.elements = NonNull::new(new_pointer as _).ok_or(Error::NewPointerIsNull)?;
         self.capacity = new_capacity;
 
         Ok(())
     }
 
-    pub fn push(&mut self, item: T) -> Result<(), Error> {
-        if self.length == self.capacity {
+    pub fn push(&mut self, element: T) -> Result<(), Error> {
+        if self.is_full() {
             self.grow()?;
         }
 
         unsafe {
-            let destination = self.items.as_ptr().add(self.length);
+            let destination = self.elements.as_ptr().add(self.length);
             // SAFETY:
             // destination is not null because `self.items` is [NotNull]
             // destination was created with [Layout::array] and is therefore properly aligned
-            ptr::write(destination, item);
+            ptr::write(destination, element);
         }
 
         self.length += 1;
 
         Ok(())
+    }
+
+    pub fn pop(&mut self) -> Option<T> {
+        if self.is_empty() {
+            None
+        } else {
+            self.length -= 1;
+
+            // SAFETY:
+            // `self.elements` is [NonNull]. `self.length` will always be a valid offset because `self.length` only increases after an element has been written
+            let popped_element_pointer = unsafe { self.elements.as_ptr().add(self.length) };
+
+            // SAFETY:
+            // `popped_element_pointer` is valid for reads and points to a properly initialized value. see above
+            // `popped_element_pointer` is properly aligned because `self.elements` is aligned and `add` keeps alignment
+            let popped_element = unsafe { ptr::read(popped_element_pointer) };
+
+            Some(popped_element)
+        }
     }
 }
 
