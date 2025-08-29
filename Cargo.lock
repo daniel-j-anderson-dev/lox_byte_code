@@ -5,6 +5,9 @@ version = 4
 [[package]]
 name = "byte_code_compiler"
 version = "0.1.0"
+dependencies = [
+ "my_vec",
+]
 
 [[package]]
 name = "my_vec"
